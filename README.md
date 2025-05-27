@@ -16,16 +16,19 @@ To deploy an example HDFS cluster, run:
   docker-compose up
 ```
 
-Run example wordcount job:
+To recive data from TwelveData API, run
 ```
-  make wordcount
-```
-
-Or deploy in swarm:
-```
-docker stack deploy -c docker-compose-v3.yml hadoop
+  docker-compose up producer
 ```
 
+To storage recived data to MongoDB, run
+```
+  docker-compose up consumer
+```
+To write data to Elastic, run
+```
+  docker-compose up submit
+```
 `docker-compose` creates a docker network that can be found by running `docker network list`, e.g. `dockerhadoop_default`.
 
 Run `docker network inspect` on the network (e.g. `dockerhadoop_default`) to find the IP the hadoop interfaces are published on. Access these interfaces with the following URLs:
@@ -35,6 +38,10 @@ Run `docker network inspect` on the network (e.g. `dockerhadoop_default`) to fin
 * Datanode: http://<dockerhadoop_IP_address>:9864/
 * Nodemanager: http://<dockerhadoop_IP_address>:8042/node
 * Resource manager: http://<dockerhadoop_IP_address>:8088/
+* KafkaUI: http://localhost:8081/
+* Spark: http://localhost:8080/
+* MongoExpress: http://localhost:8082/
+* Elastic: http://localhost:5601/
 
 ## Configure Environment Variables
 
