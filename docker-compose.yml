@@ -13,7 +13,8 @@ services:
       - CLUSTER_NAME=test
     env_file:
       - ./hadoop.env
-
+    networks:
+      - mynetwork
   datanode:
     image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
     container_name: datanode
@@ -23,7 +24,8 @@ services:
       SERVICE_PRECONDITION: "namenode:9870"
     env_file:
       - ./hadoop.env
-
+    networks:
+      - mynetwork
   resourcemanager:
     image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
     container_name: resourcemanager
@@ -33,7 +35,8 @@ services:
       - ./hadoop.env
     ports:
       - "8088:8088"
-
+    networks:
+      - mynetwork
   nodemanager:
     image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
     container_name: nodemanager
@@ -41,7 +44,8 @@ services:
       SERVICE_PRECONDITION: "namenode:9000 datanode:9864 resourcemanager:8088"
     env_file:
       - ./hadoop.env
-
+    networks:
+      - mynetwork
   historyserver:
     image: bde2020/hadoop-historyserver:2.0.0-hadoop3.2.1-java8
     container_name: historyserver
@@ -53,7 +57,8 @@ services:
       - ./hadoop.env
     ports:
       - "8188:8188"
-
+    networks:
+      - mynetwork
   spark:
     image: bitnami/spark:latest
     container_name: spark
@@ -62,6 +67,8 @@ services:
     ports:
       - "8080:8080"
       - "7077:7077"
+    networks:
+      - mynetwork
 
   spark-worker:
     image: bitnami/spark:latest
@@ -71,6 +78,8 @@ services:
       - SPARK_MASTER_URL=spark://spark:7077
     depends_on:
       - spark
+    networks:
+      - mynetwork
 
   kafka:
     image: bitnami/kafka:3.3.2
@@ -80,12 +89,13 @@ services:
     environment:
       - KAFKA_CFG_BROKER_ID=1
       - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://host.docker.internal:9092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
       - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
       - ALLOW_PLAINTEXT_LISTENER=yes
     depends_on:
       - zookeeper
-
+    networks:
+      - mynetwork
   zookeeper:
     image: bitnami/zookeeper:latest
     container_name: zookeeper
@@ -93,8 +103,8 @@ services:
       - "2181:2181"
     environment:
       - ALLOW_ANONYMOUS_LOGIN=yes
-
-  # docker-compose.yml bổ sung Kafka UI
+    networks:
+      - mynetwork
   kafka-ui:
     image: provectuslabs/kafka-ui
     ports:
@@ -102,7 +112,8 @@ services:
     environment:
       - KAFKA_CLUSTERS_0_NAME=local
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
-
+    networks:
+      - mynetwork
   producer:
     build:
       context: ./producer
@@ -113,6 +124,8 @@ services:
       - spark
     environment:
       - PYTHONUNBUFFERED=1
+    networks:
+      - mynetwork
 
   consumer:
     build:
@@ -122,9 +135,24 @@ services:
     depends_on:
       - kafka
       - spark
+      - mongo
     environment:
       - PYTHONUNBUFFERED=1
+    networks:
+      - mynetwork  
 
+  submit:
+    image: bitnami/spark:latest
+    container_name: submit
+    depends_on:
+      - spark
+      - mongo
+      - elasticsearch
+    networks:
+      - mynetwork
+    volumes:
+      - ./submit:/app
+    command: ["/app/run.sh"]
   mongo:
     image: mongo:6.0
     container_name: mongo
@@ -132,7 +160,8 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
-
+    networks:
+        - mynetwork
   mongo-express:
     image: mongo-express
     container_name: mongo-express
@@ -144,10 +173,43 @@ services:
       - ME_CONFIG_BASICAUTH_PASSWORD=admin
     depends_on:
       - mongo
+    networks:
+      - mynetwork
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.13
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    networks:
+      - mynetwork
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.13
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - mynetwork
+
+networks:
+  mynetwork:
+    driver: bridge
 
 volumes:
   hadoop_namenode:
   hadoop_datanode:
   hadoop_historyserver:
   mongo_data:
-
